@@ -1,4 +1,5 @@
 library(mice)
+library(GGally)
 
 set.seed(123)
 # Load the dataset
@@ -24,3 +25,12 @@ data = complete(clean)
 
 # They are pretty similar
 summary(data)
+
+# We check correlation between variables
+data$Gender = as.factor(data$Gender)
+levels(data$Gender)
+data_num = data[,-c(2, 8)]
+data_num$Gender = as.numeric(data$Gender) - 1 # 0 for female and 1 for male
+
+R = cor(data_num)
+ggcorr(data_num, label = T)
