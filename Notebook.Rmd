@@ -1,0 +1,271 @@
+---
+title: "HW2"
+output: html_document
+date: "2025-12-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+rm(list = ls())
+```
+# Homework 2
+
+We load all the neccesary libraries
+```{r, include = FALSE}
+library(mice)
+library(GGally)
+library(caret)
+library(randomForest)
+library(dplyr)
+```
+
+Loading the dataset:
+```{r, include=FALSE}
+set.seed(123)
+pre_data = read.csv("df_estados_bank.csv")
+```
+
+##Preprocessing
+```{r}
+summary(pre_data)
+```
+
+remove ID's
+```{r}
+pre_data = pre_data[,4:15]
+```
+
+We also remove the surnames, as we will not be using them
+```{r}
+pre_data = pre_data[,-10]
+```
+
+creating dummy variables for each state
+```{r}
+pre_data$Geography = as.factor(pre_data$Geography)
+str(pre_data$Geography)
+levels(pre_data$Geography)
+```
+
+```{r}
+pre_data$Texas = ifelse(pre_data$Geography == "Texas", 1, 0)
+pre_data$California = ifelse(pre_data$Geography == "California", 1, 0)
+pre_data$Alabama = ifelse(pre_data$Geography == "Alabama", 1, 0)
+
+head(pre_data[c("Geography", "Alabama", "California", "Texas")])
+#removing geography
+pre_data = subset(pre_data, select = -c(Geography))
+```
+
+Checking NA's
+```{r}
+barplot(colMeans(is.na(pre_data)), las=2)
+```
+cleaning NA's
+```{r}
+clean = mice(pre_data, method = "rf", m = 5)
+data = complete(clean)
+```
+
+Checking for correlation between variables
+```{r}
+data$Gender = as.factor(data$Gender)
+levels(data$Gender)
+data_num = data[,-c(2, 8)]
+data_num$Gender = as.numeric(data$Gender) - 1 # 0 for female and 1 for male
+```
+
+```{r, echo=FALSE}
+R = cor(data_num)
+ggcorr(data_num, label = T)
+```
+
+Factor Conversion
+```{r}
+#Convert Gender to Factor
+data$Gender = as.factor(data$Gender)
+
+#Convert Exited to Factor
+data$Exited = as.factor(data$Exited)
+
+#Convert Numerical Categorical Variables to Factors
+data$NumOfProducts = as.factor(data$NumOfProducts)
+data$HasCrCard = as.factor(data$HasCrCard)
+data$IsActiveMember = as.factor(data$IsActiveMember)
+data$Tenure = as.factor(data$Tenure)
+
+#Check the final structure
+str(data)
+```
+
+##Classification
+
+data partition and and display check
+```{r}
+train_index = createDataPartition(data$Exited, p = 0.7, list = FALSE)
+
+# Split the data
+train_data = data[train_index, ]
+test_data  = data[-train_index, ]
+
+# Display
+prop.table(table(train_data$Exited))
+prop.table(table(test_data$Exited))
+```
+
+###Random Forest
+training the random forest
+```{r}
+rf_model = randomForest(
+  Exited ~ ., 
+  data = train_data, 
+  ntree = 500,
+  importance = TRUE
+)
+
+# Print the model summary
+print(rf_model)
+```
+evaluating the random forest
+```{r}
+rf_predictions <- predict(rf_model, newdata = test_data)
+
+conf_matrix_rf <- confusionMatrix(rf_predictions, 
+                                  test_data$Exited, 
+                                  positive = "1")
+
+conf_matrix_rf
+```
+
+###Logistic Regression
+emphasis on interpretation
+```{r}
+glm_model = glm(Exited ~ ., 
+                 data = train_data, 
+                 family = binomial(link = "logit"))
+
+summary(glm_model)
+```
+
+```{r}
+## Evaluation of Logistic Regression Model on Test Set
+
+# 1. Predict probabilities on the test data
+# type="response" gives the probability of the positive class (Exited=1)
+glm_prob = predict(glm_model, newdata = test_data, type = "response")
+
+# 2. Convert probabilities to class predictions (using default threshold of 0.5)
+# This step is standard for generating the confusion matrix.
+glm_prediction = factor(ifelse(glm_prob > 0.5, 1, 0), levels = c("0", "1"))
+
+# 3. Create the Confusion Matrix
+conf_matrix_glm = confusionMatrix(glm_prediction, 
+                                  test_data$Exited, 
+                                  positive = "1")
+
+# 4. Print the results
+conf_matrix_glm
+```
+
+
+```{r}
+## Model Comparison: Reduced Feature Set
+
+# Define the reduced formula based on your feature importance analysis (adjust this list based on your output)
+# We will exclude the dummy variables and keep the original factors/numerics
+reduced_formula = Exited ~ Age + Balance + NumOfProducts + CreditScore + EstimatedSalary + IsActiveMember + Gender
+
+# 1. Train Reduced Random Forest
+rf_reduced = randomForest(
+  reduced_formula, 
+  data = train_data, 
+  ntree = 500,
+  importance = TRUE
+)
+
+# 2. Evaluate Reduced Random Forest
+rf_reduced_pred = predict(rf_reduced, newdata = test_data)
+conf_matrix_rf_reduced = confusionMatrix(rf_reduced_pred, 
+                                        test_data$Exited, 
+                                        positive = "1")
+
+
+# 3. Train Reduced Logistic Regression
+glm_reduced = glm(reduced_formula, 
+                 data = train_data, 
+                 family = binomial(link = "logit"))
+
+# 4. Evaluate Reduced Logistic Regression
+glm_reduced_prob = predict(glm_reduced, newdata = test_data, type = "response")
+glm_reduced_pred = factor(ifelse(glm_reduced_prob > 0.5, 1, 0), levels = c("0", "1"))
+conf_matrix_glm_reduced = confusionMatrix(glm_reduced_pred, 
+                                        test_data$Exited, 
+                                        positive = "1")
+```
+```{r}
+## Final Performance Comparison
+
+# Function to extract key metrics (You can define this in your Rmd setup)
+extract_metrics = function(conf_matrix, model_name) {
+  data.frame(
+    Model = model_name,
+    Accuracy = conf_matrix$overall['Accuracy'],
+    Sensitivity = conf_matrix$byClass['Sensitivity'],
+    Specificity = conf_matrix$byClass['Specificity'],
+    F1_Score = conf_matrix$byClass['F1']
+  )
+}
+
+# Combine all results
+comparison_table = rbind(
+  extract_metrics(conf_matrix_rf, "RF_Full"),
+  extract_metrics(conf_matrix_rf_reduced, "RF_Reduced"),
+  extract_metrics(conf_matrix_glm, "GLM_Full"),
+  extract_metrics(conf_matrix_glm_reduced, "GLM_Reduced")
+)
+
+# Print the final comparison table
+print(comparison_table)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
