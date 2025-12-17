@@ -1,7 +1,8 @@
 ---
 title: "HW2"
+author: "Adrián Arribas and Rodrigo Milton Campos"
 output: html_document
-date: "2025-12-16"
+date: "2025-12-19"
 ---
 
 ```{r setup, include=FALSE}
@@ -12,7 +13,36 @@ rm(list = ls())
 ```
 # Homework 2
 
-We load all the neccesary libraries
+We choose "Exited" as the target variable for our study to determine whether a customer leaves the bank or not.
+
+Here are the rest of the variables:
+
+CustomerId: A unique numerical identification number for each customer.
+
+CreditScore: A numerical value used to measure the customer's creditworthiness.
+
+Gender: The gender of the customer (Male or Female).
+
+Balance: The amount of money currently held in the customer's bank account.
+
+NumOfProducts: The total number of different bank products or services used by the customer.
+
+HasCrCard: A binary indicator showing whether the customer possesses a credit card.
+
+IsActiveMember: A binary indicator representing whether the customer is considered an active member of the bank.
+
+Age: The age of the customer.
+
+Geography: The region where the customer is located (Texas, California, or Alabama).
+
+EstimatedSalary: The projected annual salary of the customer.
+
+Surname: The customer's last name.
+
+Tenure: The number of years the customer has been a client of the bank.
+
+
+We load all the necessary libraries
 ```{r, include = FALSE}
 library(mice)
 library(GGally)
@@ -32,7 +62,7 @@ pre_data = read.csv("df_estados_bank.csv")
 summary(pre_data)
 ```
 
-remove ID's
+Remove ID's
 ```{r}
 pre_data = pre_data[,4:15]
 ```
@@ -42,7 +72,7 @@ We also remove the surnames, as we will not be using them
 pre_data = pre_data[,-10]
 ```
 
-creating dummy variables for each state
+Creating dummy variables for each state
 ```{r}
 pre_data$Geography = as.factor(pre_data$Geography)
 str(pre_data$Geography)
@@ -55,7 +85,7 @@ pre_data$California = ifelse(pre_data$Geography == "California", 1, 0)
 pre_data$Alabama = ifelse(pre_data$Geography == "Alabama", 1, 0)
 
 head(pre_data[c("Geography", "Alabama", "California", "Texas")])
-#removing geography
+# Removing geography
 pre_data = subset(pre_data, select = -c(Geography))
 ```
 
@@ -63,19 +93,25 @@ Checking NA's
 ```{r}
 barplot(colMeans(is.na(pre_data)), las=2)
 ```
-cleaning NA's
+Cleaning NA's
 ```{r}
 clean = mice(pre_data, method = "rf", m = 5)
 data = complete(clean)
+```
+
+It is safe to assume a tenure of 100 years is not the intended value and probably a typo or a mistake
+```{r}
+data = data[data$Tenure < 100,]
 ```
 
 Checking for correlation between variables
 ```{r}
 data$Gender = as.factor(data$Gender)
 levels(data$Gender)
-data_num = data[,-c(2, 8)]
+data_num = data[,-2]
 data_num$Gender = as.numeric(data$Gender) - 1 # 0 for female and 1 for male
 ```
+
 
 ```{r, echo=FALSE}
 R = cor(data_num)
@@ -100,9 +136,43 @@ data$Tenure = as.factor(data$Tenure)
 str(data)
 ```
 
+We visualize the target variable
+```{r}
+ggplot(data, aes(x = Age, fill = Exited)) +
+  geom_density() +
+  labs(title = "Exited Distribution by Age",
+       x = "Age",
+       fill = "Exited") +
+  theme_minimal()
+```
+
+Although the plot of those that exited seems to be shifted towards a higher age, there is not much of a difference.
+
+```{r}
+ggplot(data, aes(x = NumOfProducts, fill = Exited)) +
+  geom_bar() +
+  labs(title = "Exited Distribution by Products",
+       x = "Number of Products",
+       fill = "Exited") +
+  theme_minimal()
+```
+
+Even though the count is rather small, there is a much bigger proportion of customers that exited when looking at those with a higher number of products used.
+
+```{r}
+ggplot(data, aes(x = Balance, fill = Exited)) +
+  geom_histogram() +
+  labs(title = "Exited Distribution by Balance",
+       x = "Balance",
+       fill = "Exited") +
+  theme_minimal()
+```
+
+Yields no clear conclusion as to how the balance affects the target variable.
+
 ##Classification
 
-data partition and and display check
+Data partition and display check
 ```{r}
 train_index = createDataPartition(data$Exited, p = 0.7, list = FALSE)
 
@@ -116,7 +186,7 @@ prop.table(table(test_data$Exited))
 ```
 
 ###Random Forest
-training the random forest
+Training the random forest
 ```{r}
 rf_model = randomForest(
   Exited ~ ., 
@@ -128,7 +198,7 @@ rf_model = randomForest(
 # Print the model summary
 print(rf_model)
 ```
-evaluating the random forest
+Evaluating the random forest
 ```{r}
 rf_predictions <- predict(rf_model, newdata = test_data)
 
@@ -140,7 +210,7 @@ conf_matrix_rf
 ```
 
 ###Logistic Regression
-emphasis on interpretation
+Emphasis on interpretation
 ```{r}
 glm_model = glm(Exited ~ ., 
                  data = train_data, 
@@ -173,8 +243,8 @@ conf_matrix_glm
 ```{r}
 ## Model Comparison: Reduced Feature Set
 
-# Define the reduced formula based on your feature importance analysis (adjust this list based on your output)
-# We will exclude the dummy variables and keep the original factors/numerics
+# Define the reduced formula based on feature importance analysis:
+# We will exclude the dummy variables and keep the original factors/numerics:
 reduced_formula = Exited ~ Age + Balance + NumOfProducts + CreditScore + EstimatedSalary + IsActiveMember + Gender
 
 # 1. Train Reduced Random Forest
