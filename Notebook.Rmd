@@ -49,6 +49,7 @@ library(GGally)
 library(caret)
 library(randomForest)
 library(dplyr)
+library(pROC)
 ```
 
 Loading the dataset:
@@ -209,6 +210,39 @@ conf_matrix_rf <- confusionMatrix(rf_predictions,
 conf_matrix_rf
 ```
 
+We use the ROC curve to obtain the optimal threshold.
+```{r}
+rf_prob <- predict(rf_model, newdata = test_data, type = "prob")
+plot.roc(test_data$Exited, rf_prob[,2], col="darkblue", print.auc = TRUE,  auc.polygon=TRUE, grid=c(0.1, 0.2),
+         grid.col=c("green", "red"), max.auc.polygon=TRUE,
+         auc.polygon.col="lightblue", print.thres=TRUE)
+```
+
+We seem to obtain an optimal threshold of about 0.15
+It makes sense for us to obtain a low threshold due to the imbalance we can see in the positive and negative values for the target variable.
+```{r}
+threshold_1 = 0.15
+
+# New model with "optimal" threshold
+rf_model = randomForest(
+  Exited ~ ., 
+  data = train_data, 
+  ntree = 500,
+  importance = TRUE,
+  cutoff = c(0.85, 0.15)
+)
+
+rf_predictions <- predict(rf_model, newdata = test_data)
+
+conf_matrix_rf <- confusionMatrix(rf_predictions, 
+                                  test_data$Exited, 
+                                  positive = "1")
+
+conf_matrix_rf
+```
+
+It seems to have traded a substantial increase in Sensitivity in exchange for a noticeable decrease in Specificity. The Accuracy is also lower.
+
 ###Logistic Regression
 Emphasis on interpretation
 ```{r}
@@ -239,6 +273,29 @@ conf_matrix_glm = confusionMatrix(glm_prediction,
 conf_matrix_glm
 ```
 
+We use the ROC curve to obtain the optimal threshold.
+```{r}
+plot.roc(test_data$Exited, glm_prob, col="darkblue", print.auc = TRUE,  auc.polygon=TRUE, grid=c(0.1, 0.2),
+         grid.col=c("green", "red"), max.auc.polygon=TRUE,
+         auc.polygon.col="lightblue", print.thres=TRUE)
+```
+
+We can try a threshold of around 0.2
+```{r}
+threshold_2 = 0.2
+
+# Evaluation of Logistic Regression Model with "optimal" threshold
+glm_prediction = factor(ifelse(glm_prob > threshold_2, 1, 0), levels = c("0", "1"))
+
+
+conf_matrix_glm = confusionMatrix(glm_prediction, 
+                                  test_data$Exited, 
+                                  positive = "1")
+
+conf_matrix_glm
+```
+
+It seems to have traded a substantial increase in Sensitivity in exchange for a slight decrease in Specificity. The Accuracy is also a bit lower.
 
 ```{r}
 ## Model Comparison: Reduced Feature Set
@@ -252,7 +309,8 @@ rf_reduced = randomForest(
   reduced_formula, 
   data = train_data, 
   ntree = 500,
-  importance = TRUE
+  importance = TRUE,
+  cutoff = c(1 - threshold_1, threshold_1)
 )
 
 # 2. Evaluate Reduced Random Forest
@@ -269,7 +327,7 @@ glm_reduced = glm(reduced_formula,
 
 # 4. Evaluate Reduced Logistic Regression
 glm_reduced_prob = predict(glm_reduced, newdata = test_data, type = "response")
-glm_reduced_pred = factor(ifelse(glm_reduced_prob > 0.5, 1, 0), levels = c("0", "1"))
+glm_reduced_pred = factor(ifelse(glm_reduced_prob > threshold_2, 1, 0), levels = c("0", "1"))
 conf_matrix_glm_reduced = confusionMatrix(glm_reduced_pred, 
                                         test_data$Exited, 
                                         positive = "1")
