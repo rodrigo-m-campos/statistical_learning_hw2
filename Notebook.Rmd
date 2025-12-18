@@ -53,8 +53,8 @@ library(dplyr)
 library(pROC)
 ```
 
-Loading the dataset:
 ```{r, include=FALSE}
+# Loading the dataset:
 set.seed(123)
 pre_data = read.csv("df_estados_bank.csv")
 ```
