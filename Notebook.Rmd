@@ -243,6 +243,8 @@ conf_matrix_rf
 
 It seems to have traded a substantial increase in Sensitivity in exchange for a noticeable decrease in Specificity. The Accuracy is also lower.
 
+
+
 ###Logistic Regression
 Emphasis on interpretation
 ```{r}
@@ -297,12 +299,50 @@ conf_matrix_glm
 
 It seems to have traded a substantial increase in Sensitivity in exchange for a slight decrease in Specificity. The Accuracy is also a bit lower.
 
+
+## Cost Matrix
+
+We define a possible cost matrix and obtain the optimal threshold for it.
+
+```{r}
+churn_cost = 500          # Lifetime value of a client
+retention = 50     # Cost of the incentive
+
+thresholds = seq(0.05, 0.95, 0.05)
+total_profits = data.frame(Threshold = thresholds, Profit = rep(0, length(thresholds)))
+for (i in 1:length(thresholds)) {
+ threshold = thresholds[i] 
+ preds = ifelse(glm_prob >= threshold, 1, 0)
+ 
+ tp = sum(preds == 1 & test_data$Exited == 1)
+ fp = sum(preds == 1 & test_data$Exited == 0)
+ 
+ total_profits$Profit[i] = (tp * (churn_cost - retention)) - (fp * retention)
+}
+
+ggplot(total_profits, aes(x = Threshold, y = Profit))+
+  geom_line(color = "blue")+
+  geom_vline(xintercept = thresholds[which.max(total_profits$Profit)], linetype="dashed", color="red")
+```
+
+We can observe the best threshold for economic gain we have tested is 0.1, which makes sense given the much higher cost of loosing a customer with respect to offering an incentive for retention.
+
+
+## Feature Selection
+
+```{r}
+importance(rf_model) # Raw scores
+varImpPlot(rf_model, main = "Variable Importance")
+```
+
+Looking at the Variable Importance graph we can choose NumOfProducts, Age, IsActiveMember, Balance and Geography (divided in California, Alabama and Texas) as the 5 most important variables for the Random Forest.
+
 ```{r}
 ## Model Comparison: Reduced Feature Set
 
 # Define the reduced formula based on feature importance analysis:
-# We will exclude the dummy variables and keep the original factors/numerics:
-reduced_formula = Exited ~ Age + Balance + NumOfProducts + CreditScore + EstimatedSalary + IsActiveMember + Gender
+# We will use the thresholds obtained by the ROC curves
+reduced_formula = Exited ~ Age + Balance + NumOfProducts + CreditScore + IsActiveMember + California + Alabama + Texas
 
 # 1. Train Reduced Random Forest
 rf_reduced = randomForest(
