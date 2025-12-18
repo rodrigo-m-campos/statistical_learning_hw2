@@ -8,7 +8,7 @@ date: "2025-12-19"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-```{r}
+```{r, include=FALSE}
 rm(list = ls())
 ```
 # Homework 2
@@ -42,8 +42,9 @@ Surname: The customer's last name.
 Tenure: The number of years the customer has been a client of the bank.
 
 
-We load all the necessary libraries
-```{r, include = FALSE}
+
+We load all the necessary libraries:
+```{r}
 library(mice)
 library(GGally)
 library(caret)
@@ -58,7 +59,7 @@ set.seed(123)
 pre_data = read.csv("df_estados_bank.csv")
 ```
 
-##Preprocessing
+## Preprocessing and Visualization
 ```{r}
 summary(pre_data)
 ```
@@ -171,7 +172,7 @@ ggplot(data, aes(x = Balance, fill = Exited)) +
 
 Yields no clear conclusion as to how the balance affects the target variable.
 
-##Classification
+## Classification
 
 Data partition and display check
 ```{r}
@@ -186,7 +187,7 @@ prop.table(table(train_data$Exited))
 prop.table(table(test_data$Exited))
 ```
 
-###Random Forest
+### Random Forest
 Training the random forest
 ```{r}
 rf_model = randomForest(
@@ -210,6 +211,7 @@ conf_matrix_rf <- confusionMatrix(rf_predictions,
 conf_matrix_rf
 ```
 
+#### ROC for Random Forest
 We use the ROC curve to obtain the optimal threshold.
 ```{r}
 rf_prob <- predict(rf_model, newdata = test_data, type = "prob")
@@ -245,7 +247,7 @@ It seems to have traded a substantial increase in Sensitivity in exchange for a 
 
 
 
-###Logistic Regression
+### Logistic Regression
 Emphasis on interpretation
 ```{r}
 glm_model = glm(Exited ~ ., 
@@ -254,6 +256,12 @@ glm_model = glm(Exited ~ .,
 
 summary(glm_model)
 ```
+
+We can determine what variables are more significant for predicting the exit of customers by looking at the "Estimate" column while bearing in mind the strength of theses predictors is given by the p-value assigned to them. Therefore, we check primarily those with "***" (smallest p-value). Positive values mean a higher value for the input variable yield a higher probability of the customer leaving.
+
+Taking this into account, it seems that Age is a factor that increases the risk of churn (positive Estimate value), and so is being from Alabama (or registering there for the bank's services), as we can see from the negative Estimate values for California and Texas.
+
+Being male (Gender) and being an active member are two factors that decrease the risk of churn, as can be determined by seeing the negative values for Estimate.
 
 ```{r}
 ## Evaluation of Logistic Regression Model on Test Set
@@ -274,6 +282,7 @@ conf_matrix_glm = confusionMatrix(glm_prediction,
 # 4. Print the results
 conf_matrix_glm
 ```
+#### ROC for Logistic Regression
 
 We use the ROC curve to obtain the optimal threshold.
 ```{r}
@@ -282,7 +291,7 @@ plot.roc(test_data$Exited, glm_prob, col="darkblue", print.auc = TRUE,  auc.poly
          auc.polygon.col="lightblue", print.thres=TRUE)
 ```
 
-We can try a threshold of around 0.2
+We can try a threshold of around 0.2:
 ```{r}
 threshold_2 = 0.2
 
@@ -300,7 +309,7 @@ conf_matrix_glm
 It seems to have traded a substantial increase in Sensitivity in exchange for a slight decrease in Specificity. The Accuracy is also a bit lower.
 
 
-## Cost Matrix
+#### Cost Matrix
 
 We define a possible cost matrix and obtain the optimal threshold for it.
 
