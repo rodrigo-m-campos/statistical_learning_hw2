@@ -56,7 +56,7 @@ library(pROC)
 Loading the dataset
 ```{r}
 set.seed(123)
-pre_data = read.csv("df_estados_bank.csv")
+pre_data = read.csv("Data.csv")
 ```
 
 ## Preprocessing and Visualization
