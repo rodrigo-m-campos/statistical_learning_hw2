@@ -257,7 +257,7 @@ glm_model = glm(Exited ~ .,
 summary(glm_model)
 ```
 
-We can determine what variables are more significant for predicting the exit of customers by looking at the "Estimate" column while bearing in mind the strength of theses predictors is given by the p-value assigned to them. Therefore, we check primarily those with "***" (smallest p-value). Positive values mean a higher value for the input variable yield a higher probability of the customer leaving.
+We can determine what variables are more significant for predicting the exit of customers by looking at the "Estimate" column while bearing in mind the strength of these predictors is given by the p-value assigned to them. Therefore, we check primarily those with "***" (smallest p-value). Positive values mean a higher value for the input variable yield a higher probability of the customer leaving.
 
 Taking this into account, it seems that Age is a factor that increases the risk of churn (positive Estimate value), and so is being from Alabama (or registering there for the bank's services), as we can see from the negative Estimate values for California and Texas.
 
@@ -330,7 +330,7 @@ ggplot(total_profits, aes(x = Threshold, y = Profit))+
   geom_vline(xintercept = thresholds[which.max(total_profits$Profit)], linetype="dashed", color="red")
 ```
 
-We can observe the best threshold for economic gain we have tested is 0.1, which makes sense given the much higher cost of loosing a customer with respect to offering an incentive for retention.
+We can observe the best threshold for economic gain we have tested is 0.1, which makes sense given the much higher cost of losing a customer with respect to offering an incentive for retention.
 
 
 ## Feature Selection
